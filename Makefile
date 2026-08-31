@@ -3,6 +3,7 @@ CODEX_VERSION ?= latest
 PLATFORM ?= linux/amd64
 SLURM_ARCHIVE ?= $(IMAGE).tar
 SLURM_SIF ?= $(IMAGE).sif
+REPO_DIR ?= $(CURDIR)
 
 .PHONY: build slurm_build server_build server_run clean
 
@@ -19,10 +20,16 @@ server_build:
 slurm_build: server_build
 
 server_run:
-	mkdir -p "$$HOME/.codex"
-	bash -lc 'module load apptainer && apptainer exec \
-		--bind "$$HOME/.codex:/home/codex/.codex" \
-		--bind "$$(pwd):/workspace" \
+	mkdir -p "$$HOME/.codex" && \
+	CODEX_RUNTIME="$$(mktemp -d "$${TMPDIR:-/tmp}/codex-home.XXXXXX")" && \
+	export CODEX_RUNTIME && \
+	REPO_DIR="$(REPO_DIR)" && export REPO_DIR && \
+	trap 'rm -rf "$$CODEX_RUNTIME"' EXIT && \
+	tar --exclude='*.sqlite*' --exclude='./ipc' -C "$$HOME/.codex" -cf - . | \
+		tar -C "$$CODEX_RUNTIME" -xf - && \
+	bash -lc 'module load apptainer && apptainer exec --containall --cleanenv \
+		--bind "$$CODEX_RUNTIME:/home/codex/.codex" \
+		--bind "$$REPO_DIR:/workspace" \
 		--pwd /workspace \
 		$(SLURM_SIF) codex'
 
