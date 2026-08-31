@@ -1,0 +1,7 @@
+.git
+.codex
+node_modules
+codex-auth
+*.env
+*.pem
+*.key
