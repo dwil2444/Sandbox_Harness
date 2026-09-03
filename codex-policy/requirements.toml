@@ -1,0 +1,14 @@
+[features]
+hooks = true
+
+[hooks]
+managed_dir = "/opt/codex-hooks"
+
+[[hooks.PreToolUse]]
+matcher = "^(Bash|apply_patch)$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "/usr/local/bin/node /opt/codex-hooks/workspace-write-guard.mjs --workspace /workspace"
+timeout = 5
+statusMessage = "Checking workspace write policy"

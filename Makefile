@@ -5,7 +5,10 @@ SLURM_ARCHIVE ?= $(IMAGE).tar
 SLURM_SIF ?= $(IMAGE).sif
 REPO_DIR ?= $(CURDIR)
 
-.PHONY: build slurm_build server_build server_run clean
+.PHONY: build test slurm_build server_build server_run clean
+
+test:
+	node --test tests/*.test.mjs
 
 build:
 	docker build --platform $(PLATFORM) --build-arg CODEX_VERSION=$(CODEX_VERSION) -t $(IMAGE):latest .
@@ -31,7 +34,7 @@ server_run:
 		--bind "$$CODEX_RUNTIME:/home/codex/.codex" \
 		--bind "$$REPO_DIR:/workspace" \
 		--pwd /workspace \
-		$(SLURM_SIF) codex'
+		$(SLURM_SIF) codex --sandbox danger-full-access --ask-for-approval never'
 
 
 clean:

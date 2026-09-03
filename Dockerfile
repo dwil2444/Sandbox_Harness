@@ -19,7 +19,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /usr/local/bin/codex-container
-RUN chmod 0755 /usr/local/bin/codex-container
+COPY codex-policy/workspace-write-guard.mjs /opt/codex-hooks/workspace-write-guard.mjs
+COPY codex-policy/requirements.toml /etc/codex/requirements.toml
+RUN chmod 0755 \
+        /usr/local/bin/codex-container \
+        /opt/codex-hooks/workspace-write-guard.mjs
 
 USER codex
 WORKDIR /workspace
