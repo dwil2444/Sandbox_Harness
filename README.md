@@ -49,6 +49,34 @@ docker run --rm -it \
 Only mount the repository that Codex is meant to access. Do not mount the Docker socket
 or the host root filesystem.
 
+## Host wrapper scripts
+
+This repository can also carry small host-side wrapper scripts for launching CLI
+agents inside prebuilt Apptainer sandboxes. The wrappers are intended to be installed
+somewhere on the user's `PATH` and named after the agent they start. For example,
+the root-level `codex` wrapper launches the Codex sandbox, binds a selected repository
+as `/workspace`, copies the user's Codex configuration into a temporary runtime
+directory, and then starts the CLI inside the container.
+
+The wrapper convention is intentionally tool-agnostic: future wrappers for other
+agents, such as Claude or additional Codex variants, can follow the same model while
+using their own sandbox path, configuration directory, and container entry command.
+Each wrapper should keep credentials outside the image, bind only the target
+repository, and treat the container or Apptainer mount namespace as the authoritative
+isolation boundary.
+
+For the included Codex wrapper, the Apptainer sandbox defaults to:
+
+```bash
+$HOME/.local/share/codex
+```
+
+Override it with `CODEX_SANDBOX` if the sandbox lives elsewhere:
+
+```bash
+CODEX_SANDBOX=/path/to/codex-sandbox codex /path/to/repo
+```
+
 ## Workspace write hook
 
 The hook policy is enforced through `/etc/codex/requirements.toml` in the image,

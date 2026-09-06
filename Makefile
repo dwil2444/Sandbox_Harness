@@ -1,8 +1,8 @@
-IMAGE ?= codex-server
+IMAGE ?= codex
 CODEX_VERSION ?= latest
 PLATFORM ?= linux/amd64
 SLURM_ARCHIVE ?= $(IMAGE).tar
-SLURM_SIF ?= $(IMAGE).sif
+SLURM_SANDBOX ?= $(HOME)/.local/share/$(IMAGE)
 REPO_DIR ?= $(CURDIR)
 
 .PHONY: build test slurm_build server_build server_run clean
@@ -18,11 +18,11 @@ build:
 #   make server_build
 
 server_build:
-	bash -lc 'module load apptainer && apptainer build "$(SLURM_SIF)" "docker-archive://$(SLURM_ARCHIVE)"'
+	bash -lc 'module load apptainer && mkdir -p "$(HOME)/.local/share" && apptainer build --sandbox "$(SLURM_SANDBOX)" "docker-archive://$(SLURM_ARCHIVE)"'
 
 slurm_build: server_build
 
-server_run:
+server_run: # this is replaced by a binary
 	mkdir -p "$$HOME/.codex" && \
 	CODEX_RUNTIME="$$(mktemp -d "$${TMPDIR:-/tmp}/codex-home.XXXXXX")" && \
 	export CODEX_RUNTIME && \
@@ -34,7 +34,7 @@ server_run:
 		--bind "$$CODEX_RUNTIME:/home/codex/.codex" \
 		--bind "$$REPO_DIR:/workspace" \
 		--pwd /workspace \
-		$(SLURM_SIF) codex --sandbox danger-full-access --ask-for-approval never'
+		$(SLURM_SANDBOX) codex --sandbox danger-full-access --ask-for-approval never
 
 
 clean:

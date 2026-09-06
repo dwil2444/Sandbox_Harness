@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CODEX_SANDBOX="${CODEX_SANDBOX:-$HOME/.local/share/codex}"
+
+if [[ $# -gt 0 && -d "$1" ]]; then
+    REPO_DIR="$(cd "$1" && pwd -P)"
+    shift
+else
+    REPO_DIR="$PWD"
+fi
+
+if [[ ! -d "$CODEX_SANDBOX" ]]; then
+    echo "Codex sandbox not found: $CODEX_SANDBOX" >&2
+    exit 1
+fi
+
+mkdir -p "$HOME/.codex"
+
+CODEX_RUNTIME="$(mktemp -d "${TMPDIR:-/tmp}/codex-home.XXXXXX")"
+
+cleanup() {
+    rm -rf "$CODEX_RUNTIME"
+}
+
+trap cleanup EXIT
+
+tar \
+    --exclude='*.sqlite*' \
+    --exclude='./ipc' \
+    -C "$HOME/.codex" \
+    -cf - . |
+tar -C "$CODEX_RUNTIME" -xf -
+
+export CODEX_RUNTIME
+export REPO_DIR
+export CODEX_SANDBOX
+
+bash -lc '
+    module load apptainer
+    exec apptainer exec --containall --cleanenv \
+        --bind "$CODEX_RUNTIME:/home/codex/.codex" \
+        --bind "$REPO_DIR:/workspace" \
+        --pwd /workspace \
+        "$CODEX_SANDBOX" \
+        codex \
+        --sandbox danger-full-access \
+        --ask-for-approval never \
+        "$@"
+' -- "$@"
