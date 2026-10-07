@@ -24,26 +24,30 @@ make server_build
 ```
 
 If Apptainer is already on your `PATH`, use `make build` instead. Both build a
-sandbox directory at `$HOME/.local/share/codex`. `make slurm_build` is an alias
+SIF image at `$HOME/.local/share/codex.sif`. `make slurm_build` is an alias
 for `make server_build`.
 
-To select a CLI version or a different output directory:
+To select a CLI version or a different output file:
 
 ```bash
-make server_build CODEX_VERSION='<version>' SLURM_SANDBOX=/path/to/codex-sandbox
+make server_build CODEX_VERSION='<version>' SLURM_SANDBOX=/path/to/codex.sif
 ```
 
 The equivalent direct build command is:
 
 ```bash
 mkdir -p "$HOME/.local/share"
-apptainer build --fakeroot --sandbox "$HOME/.local/share/codex" codex.def
+apptainer build --fakeroot "$HOME/.local/share/codex.sif" codex.def
 ```
 
 The build needs network access to the image registry, Debian repositories, and
 npm, plus support for Apptainer's fakeroot mode on the build host. If the cluster
 disables unprivileged builds, build on another Apptainer host with a compatible
-architecture and transfer the resulting sandbox. No Docker archive is needed.
+architecture and transfer the resulting `.sif` file. No Docker archive is needed.
+
+The SIF image contains a compressed, read-only container filesystem. The bound
+repository and runtime configuration remain writable. To update installed tools,
+rebuild the image from `codex.def`.
 
 After building, launch against a selected repository:
 
@@ -63,7 +67,7 @@ apptainer run --containall --cleanenv \
   --bind /secure/codex:/home/codex/.codex \
   --bind /server/repos/project:/workspace \
   --pwd /workspace \
-  "$HOME/.local/share/codex" --sandbox danger-full-access --ask-for-approval never
+  "$HOME/.local/share/codex.sif" --sandbox danger-full-access --ask-for-approval never
 ```
 
 The mounted Codex directory is intentionally external to the image. Do not commit it,
@@ -80,7 +84,7 @@ apptainer run --containall --cleanenv \
   --bind "$SSH_AUTH_SOCK:/tmp/ssh-agent" \
   --env SSH_AUTH_SOCK=/tmp/ssh-agent \
   --pwd /workspace \
-  "$HOME/.local/share/codex" --sandbox danger-full-access --ask-for-approval never
+  "$HOME/.local/share/codex.sif" --sandbox danger-full-access --ask-for-approval never
 ```
 
 Only mount the repository that Codex is meant to access. Do not mount the host
@@ -89,29 +93,31 @@ root filesystem.
 ## Host wrapper scripts
 
 This repository can also carry small host-side wrapper scripts for launching CLI
-agents inside prebuilt Apptainer sandboxes. The wrappers are intended to be installed
+agents inside prebuilt Apptainer SIF images. The wrappers are intended to be installed
 somewhere on the user's `PATH` and named after the agent they start. For example,
-the root-level `codex` wrapper launches the Codex sandbox, binds a selected repository
+the root-level `codex` wrapper launches the Codex image, binds a selected repository
 as `/workspace`, copies the user's Codex configuration into a temporary runtime
 directory, and then starts the CLI inside the container.
 
 The wrapper convention is intentionally tool-agnostic: future wrappers for other
 agents, such as Claude or additional Codex variants, can follow the same model while
-using their own sandbox path, configuration directory, and container entry command.
+using their own image path, configuration directory, and container entry command.
 Each wrapper should keep credentials outside the image, bind only the target
 repository, and treat the container or Apptainer mount namespace as the authoritative
 isolation boundary.
 
-For the included Codex wrapper, the Apptainer sandbox defaults to:
+For the included Codex wrapper, the Apptainer image defaults to:
 
 ```bash
-$HOME/.local/share/codex
+$HOME/.local/share/codex.sif
 ```
 
-Override it with `CODEX_SANDBOX` if the sandbox lives elsewhere:
+Override it with `CODEX_SANDBOX` if the image lives elsewhere. The existing
+`CODEX_SANDBOX` and Makefile `SLURM_SANDBOX` variable names are retained, but now
+refer to SIF files:
 
 ```bash
-CODEX_SANDBOX=/path/to/codex-sandbox codex /path/to/repo
+CODEX_SANDBOX=/path/to/codex.sif codex /path/to/repo
 ```
 
 ## Workspace write hook

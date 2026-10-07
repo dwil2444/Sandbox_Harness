@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_SANDBOX="${CODEX_SANDBOX:-$HOME/.local/share/codex}"
+CODEX_SANDBOX="${CODEX_SANDBOX:-$HOME/.local/share/codex.sif}"
 
 if [[ $# -gt 0 && -d "$1" ]]; then
     REPO_DIR="$(cd "$1" && pwd -P)"
@@ -10,8 +10,8 @@ else
     REPO_DIR="$PWD"
 fi
 
-if [[ ! -d "$CODEX_SANDBOX" ]]; then
-    echo "Codex sandbox not found: $CODEX_SANDBOX" >&2
+if [[ ! -f "$CODEX_SANDBOX" ]]; then
+    echo "Codex SIF image not found: $CODEX_SANDBOX" >&2
     exit 1
 fi
 
