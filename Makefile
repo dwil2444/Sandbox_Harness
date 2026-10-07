@@ -10,12 +10,14 @@ test:
 
 # Apptainer must already be available on PATH (module load apptainer on HPC).
 build:
-	mkdir -p "$(dir $(SLURM_SANDBOX))"
-	apptainer build --fakeroot --build-arg "CODEX_VERSION=$(CODEX_VERSION)" "$(SLURM_SANDBOX)" codex.def
+	apptainer build --fakeroot --build-arg "CODEX_VERSION=$(CODEX_VERSION)" "$(CURDIR)/$(IMAGE).sif" codex.def
 
 # UVA/SLURM build: run from this repository on the server.
 server_build:
 	bash -lc 'module load apptainer && $(MAKE) build'
+	mkdir -p "$(dir $(SLURM_SANDBOX))" "$(HOME)/bin"
+	install -m 0644 "$(CURDIR)/$(IMAGE).sif" "$(SLURM_SANDBOX)"
+	install -m 0755 codex "$(HOME)/bin/codex"
 
 slurm_build: server_build
 
