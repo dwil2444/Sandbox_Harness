@@ -1,42 +1,23 @@
 IMAGE ?= codex
 CODEX_VERSION ?= latest
-PLATFORM ?= linux/amd64
-SLURM_ARCHIVE ?= $(IMAGE).tar
 SLURM_SANDBOX ?= $(HOME)/.local/share/$(IMAGE)
 REPO_DIR ?= $(CURDIR)
 
-.PHONY: build test slurm_build server_build server_run clean
+.PHONY: build test slurm_build server_build server_run
 
 test:
 	node --test tests/*.test.mjs
 
+# Apptainer must already be available on PATH (module load apptainer on HPC).
 build:
-	docker build --platform $(PLATFORM) --build-arg CODEX_VERSION=$(CODEX_VERSION) -t $(IMAGE):latest .
-	docker save $(IMAGE):latest -o $(SLURM_ARCHIVE)
+	mkdir -p "$(dir $(SLURM_SANDBOX))"
+	apptainer build --fakeroot --sandbox --build-arg "CODEX_VERSION=$(CODEX_VERSION)" "$(SLURM_SANDBOX)" codex.def
 
-# UVA/SLURM build: transfer $(SLURM_ARCHIVE) to the server first, then run:
-#   make server_build
-
+# UVA/SLURM build: run from this repository on the server.
 server_build:
-	bash -lc 'module load apptainer && mkdir -p "$(HOME)/.local/share" && apptainer build --sandbox "$(SLURM_SANDBOX)" "docker-archive://$(SLURM_ARCHIVE)"'
+	bash -lc 'module load apptainer && $(MAKE) build'
 
 slurm_build: server_build
 
-server_run: # this is replaced by a binary
-	mkdir -p "$$HOME/.codex" && \
-	CODEX_RUNTIME="$$(mktemp -d "$${TMPDIR:-/tmp}/codex-home.XXXXXX")" && \
-	export CODEX_RUNTIME && \
-	REPO_DIR="$(REPO_DIR)" && export REPO_DIR && \
-	trap 'rm -rf "$$CODEX_RUNTIME"' EXIT && \
-	tar --exclude='*.sqlite*' --exclude='./ipc' -C "$$HOME/.codex" -cf - . | \
-		tar -C "$$CODEX_RUNTIME" -xf - && \
-	bash -lc 'module load apptainer && apptainer exec --containall --cleanenv \
-		--bind "$$CODEX_RUNTIME:/home/codex/.codex" \
-		--bind "$$REPO_DIR:/workspace" \
-		--pwd /workspace \
-		$(SLURM_SANDBOX) codex --sandbox danger-full-access --ask-for-approval never
-
-
-clean:
-	rm -rf *.tar
-	docker rmi $(IMAGE):latest
+server_run:
+	CODEX_SANDBOX="$(SLURM_SANDBOX)" ./codex "$(REPO_DIR)"

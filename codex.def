@@ -1,0 +1,35 @@
+Bootstrap: docker
+From: node:22-bookworm-slim
+
+%arguments
+    CODEX_VERSION=latest
+
+%files
+    entrypoint.sh /usr/local/bin/codex-container
+    codex-policy/workspace-write-guard.mjs /opt/codex-hooks/workspace-write-guard.mjs
+    codex-policy/requirements.toml /etc/codex/requirements.toml
+
+%post
+    set -eu
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        bubblewrap ca-certificates git openssh-client
+    npm install --global "@openai/codex@{{ CODEX_VERSION }}"
+    mkdir -p /home/codex/.codex /workspace
+    chmod 0755 /usr/local/bin/codex-container \
+        /opt/codex-hooks/workspace-write-guard.mjs
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%environment
+    export CODEX_HOME=/home/codex/.codex
+    export PATH="/home/codex/.local/bin:$PATH"
+
+%runscript
+    exec /usr/local/bin/codex-container "$@"
+
+%test
+    set -eu
+    codex --version
+    node --check /opt/codex-hooks/workspace-write-guard.mjs
+    test -r /etc/codex/requirements.toml

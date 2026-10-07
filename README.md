@@ -12,8 +12,45 @@ Apptainer mount namespace and host bind permissions remain authoritative.
 
 ## Build
 
+Build directly with Apptainer from the repository root. Docker is not required:
+`Bootstrap: docker` in `codex.def` downloads the base image from Docker Hub.
+The definition installs the CLI, entrypoint, and managed policy hook without
+including credentials.
+
+On a server that provides Apptainer through environment modules:
+
 ```bash
-docker build -t codex-server .
+make server_build
+```
+
+If Apptainer is already on your `PATH`, use `make build` instead. Both build a
+sandbox directory at `$HOME/.local/share/codex`. `make slurm_build` is an alias
+for `make server_build`.
+
+To select a CLI version or a different output directory:
+
+```bash
+make server_build CODEX_VERSION='<version>' SLURM_SANDBOX=/path/to/codex-sandbox
+```
+
+The equivalent direct build command is:
+
+```bash
+mkdir -p "$HOME/.local/share"
+apptainer build --fakeroot --sandbox "$HOME/.local/share/codex" codex.def
+```
+
+The build needs network access to the image registry, Debian repositories, and
+npm, plus support for Apptainer's fakeroot mode on the build host. If the cluster
+disables unprivileged builds, build on another Apptainer host with a compatible
+architecture and transfer the resulting sandbox. No Docker archive is needed.
+
+After building, launch against a selected repository:
+
+```bash
+./codex /path/to/repo
+# Or:
+make server_run REPO_DIR=/path/to/repo
 ```
 
 ## Run with an external Codex directory
@@ -22,11 +59,11 @@ Replace `/secure/codex` with the directory containing the Codex authentication a
 configuration files, and replace `/server/repos/project` with the repository to work on:
 
 ```bash
-docker run --rm -it \
-  --mount type=bind,src=/secure/codex,dst=/home/codex/.codex \
-  --mount type=bind,src=/server/repos/project,dst=/workspace \
-  --workdir /workspace \
-  codex-server --sandbox danger-full-access --ask-for-approval never
+apptainer run --containall --cleanenv \
+  --bind /secure/codex:/home/codex/.codex \
+  --bind /server/repos/project:/workspace \
+  --pwd /workspace \
+  "$HOME/.local/share/codex" --sandbox danger-full-access --ask-for-approval never
 ```
 
 The mounted Codex directory is intentionally external to the image. Do not commit it,
@@ -37,17 +74,17 @@ copy it into the image, or publish it to a registry.
 If the repository needs SSH-based Git operations, the server can expose its SSH agent:
 
 ```bash
-docker run --rm -it \
-  --mount type=bind,src=/secure/codex,dst=/home/codex/.codex \
-  --mount type=bind,src=/server/repos/project,dst=/workspace \
-  --mount type=bind,src=$SSH_AUTH_SOCK,dst=/tmp/ssh-agent \
+apptainer run --containall --cleanenv \
+  --bind /secure/codex:/home/codex/.codex \
+  --bind /server/repos/project:/workspace \
+  --bind "$SSH_AUTH_SOCK:/tmp/ssh-agent" \
   --env SSH_AUTH_SOCK=/tmp/ssh-agent \
-  --workdir /workspace \
-  codex-server
+  --pwd /workspace \
+  "$HOME/.local/share/codex" --sandbox danger-full-access --ask-for-approval never
 ```
 
-Only mount the repository that Codex is meant to access. Do not mount the Docker socket
-or the host root filesystem.
+Only mount the repository that Codex is meant to access. Do not mount the host
+root filesystem.
 
 ## Host wrapper scripts
 
