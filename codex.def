@@ -13,7 +13,7 @@ From: node:22-bookworm-slim
     set -eu
     apt-get update
     apt-get install -y --no-install-recommends \
-        bubblewrap ca-certificates git openssh-client
+        bubblewrap ca-certificates git openssh-client procps
     npm install --global "@openai/codex@{{ CODEX_VERSION }}"
     mkdir -p /home/codex/.codex /workspace
     chmod 0755 /usr/local/bin/codex-container \
@@ -30,6 +30,7 @@ From: node:22-bookworm-slim
 
 %test
     set -eu
+    ps -p "$$" -o pid=
     codex --version
     node --check /opt/codex-hooks/workspace-write-guard.mjs
     test -r /etc/codex/requirements.toml
