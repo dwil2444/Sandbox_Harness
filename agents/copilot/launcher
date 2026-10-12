@@ -32,6 +32,8 @@ tar \
     -cf - . |
 tar -C "$COPILOT_RUNTIME" -xf -
 
+mkdir -p "$COPILOT_RUNTIME/.cache/copilot"
+
 export COPILOT_RUNTIME
 export REPO_DIR
 export COPILOT_SANDBOX
@@ -50,6 +52,8 @@ bash -lc '
     exec apptainer exec --containall --cleanenv \
         --bind "$COPILOT_RUNTIME:/home/copilot/.copilot" \
         --bind "$REPO_DIR:/workspace" \
+        --env XDG_CACHE_HOME=/home/copilot/.copilot/.cache \
+        --env COPILOT_CACHE_HOME=/home/copilot/.copilot/.cache/copilot \
         --pwd /workspace \
         "$COPILOT_SANDBOX" \
         copilot \

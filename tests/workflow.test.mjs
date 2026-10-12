@@ -29,6 +29,7 @@ if (args[0] === 'build') {
   fs.writeFileSync(process.env.CAPTURE, JSON.stringify({args, runtime,
     config: fs.readFileSync(runtime + '/config.json', 'utf8'),
     sqlite: fs.existsSync(runtime + '/state.sqlite'),
+    cache: fs.existsSync(runtime + '/.cache/copilot'),
     token: process.env.APPTAINERENV_COPILOT_GITHUB_TOKEN}));
   process.exit(Number(process.env.CLI_EXIT || 0));
 }
@@ -85,6 +86,9 @@ for (const agent of ['codex', 'copilot']) {
     assert.equal(call.sqlite, false);
     assert.equal(existsSync(call.runtime), false);
     if (agent === 'copilot') {
+      assert.equal(call.cache, true);
+      assert.ok(call.args.includes('XDG_CACHE_HOME=/home/copilot/.copilot/.cache'));
+      assert.ok(call.args.includes('COPILOT_CACHE_HOME=/home/copilot/.copilot/.cache/copilot'));
       assert.equal(call.token, 'test-token');
       assert.ok(!call.args.includes('test-token'));
     }
@@ -98,4 +102,27 @@ test('unknown agents fail before building', t => {
   const result = run('make', ['build', 'AGENT=unknown'], f);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown AGENT/);
+});
+
+test('Copilot build test uses writable temporary cache and cleans up on failure', t => {
+  const f = fixture(t);
+  const mocks = path.join(f.root, 'mocks');
+  const capture = path.join(f.root, 'test-cache.json');
+  writeFileSync(path.join(mocks, 'copilot'), `#!${process.execPath}
+const fs = require('fs');
+const cache = process.env.COPILOT_CACHE_HOME;
+fs.writeFileSync(cache + '/extraction-check', 'ok');
+fs.writeFileSync(process.env.CAPTURE, JSON.stringify({cache, config: process.env.COPILOT_HOME}));
+process.exit(23);
+`, {mode: 0o755});
+  for (const name of ['ps', 'curl', 'jq', 'rg', 'make']) {
+    writeFileSync(path.join(mocks, name), '#!/bin/sh\nexit 0\n', {mode: 0o755});
+  }
+  const definition = readFileSync(path.join(f.repo, 'agents/copilot/copilot.def'), 'utf8');
+  const script = definition.split('%test\n')[1];
+  const result = run('/bin/sh', ['-c', script], f, {CAPTURE: capture});
+  assert.equal(result.status, 23, result.stderr);
+  const paths = JSON.parse(readFileSync(capture));
+  assert.match(paths.cache, /^\/tmp\/copilot-test\.[^/]+\/cache\/copilot$/);
+  assert.equal(existsSync(path.dirname(paths.config)), false);
 });

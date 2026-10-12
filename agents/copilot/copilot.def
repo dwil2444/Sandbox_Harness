@@ -16,12 +16,22 @@ From: node:22-bookworm-slim
 
 %environment
     export COPILOT_HOME=/home/copilot/.copilot
+    export XDG_CACHE_HOME=/home/copilot/.copilot/.cache
+    export COPILOT_CACHE_HOME=/home/copilot/.copilot/.cache/copilot
 
 %runscript
     exec copilot "$@"
 
 %test
     set -eu
+    # The test may run with an unavailable /root home under fakeroot.
+    # Extraction needs writable storage outside the image filesystem.
+    COPILOT_TEST_RUNTIME="$(mktemp -d /tmp/copilot-test.XXXXXX)"
+    trap 'rm -rf "$COPILOT_TEST_RUNTIME"' EXIT
+    export COPILOT_HOME="$COPILOT_TEST_RUNTIME/config"
+    export XDG_CACHE_HOME="$COPILOT_TEST_RUNTIME/cache"
+    export COPILOT_CACHE_HOME="$XDG_CACHE_HOME/copilot"
+    mkdir -p "$COPILOT_HOME" "$COPILOT_CACHE_HOME"
     ps -p "$$" -o pid=
     curl --version
     jq --version

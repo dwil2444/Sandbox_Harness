@@ -115,6 +115,13 @@ directory mounted at `/home/codex/.codex`. The Copilot launcher similarly copies
 state are excluded. Temporary directories are removed when the CLI exits;
 configuration changes and new login/session state are not copied back to the host.
 
+Copilot's extraction cache is also placed inside its writable temporary runtime
+directory using `XDG_CACHE_HOME` and `COPILOT_CACHE_HOME`. Its build test uses a
+separate temporary configuration and cache, so it does not depend on `/root` or
+write into the read-only image. Setting `COPILOT_HOME` alone does not relocate
+the cache; see GitHub's
+[cache directory documentation](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference).
+
 Copilot supports `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_TOKEN` in that
 precedence order. Its launcher explicitly forwards these variables through
 Apptainer's clean environment, without placing tokens in command arguments.
