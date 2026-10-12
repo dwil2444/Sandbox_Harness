@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluate } from "../codex-policy/workspace-write-guard.mjs";
+import { evaluate } from "../agents/codex/policy/workspace-write-guard.mjs";
 
 function run(tool_name, command, cwd = "/workspace") {
   return evaluate({ cwd, tool_name, tool_input: { command } }, "/workspace");

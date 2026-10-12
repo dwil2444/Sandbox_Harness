@@ -1,0 +1,30 @@
+Bootstrap: docker
+From: node:22-bookworm-slim
+
+%arguments
+    COPILOT_VERSION=latest
+
+%post
+    set -eu
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        bubblewrap ca-certificates curl git jq make openssh-client procps ripgrep
+    npm_config_ignore_scripts=false npm install --global "@github/copilot@{{ COPILOT_VERSION }}"
+    mkdir -p /home/copilot/.copilot /workspace
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%environment
+    export COPILOT_HOME=/home/copilot/.copilot
+
+%runscript
+    exec copilot "$@"
+
+%test
+    set -eu
+    ps -p "$$" -o pid=
+    curl --version
+    jq --version
+    rg --version
+    make --version
+    copilot --version

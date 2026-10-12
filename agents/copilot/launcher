@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+COPILOT_SANDBOX="${AGENT_SANDBOX:-${COPILOT_SANDBOX:-$HOME/.local/share/copilot.sif}}"
+
+if [[ $# -gt 0 && -d "$1" ]]; then
+    REPO_DIR="$(cd "$1" && pwd -P)"
+    shift
+else
+    REPO_DIR="$PWD"
+fi
+
+if [[ ! -f "$COPILOT_SANDBOX" ]]; then
+    echo "Copilot SIF image not found: $COPILOT_SANDBOX" >&2
+    exit 1
+fi
+
+mkdir -p "${COPILOT_HOME:-$HOME/.copilot}"
+
+COPILOT_RUNTIME="$(mktemp -d "${TMPDIR:-/tmp}/copilot-home.XXXXXX")"
+
+cleanup() {
+    rm -rf "$COPILOT_RUNTIME"
+}
+
+trap cleanup EXIT
+
+tar \
+    --exclude='*.sqlite*' \
+    --exclude='./ipc' \
+    -C "${COPILOT_HOME:-$HOME/.copilot}" \
+    -cf - . |
+tar -C "$COPILOT_RUNTIME" -xf -
+
+export COPILOT_RUNTIME
+export REPO_DIR
+export COPILOT_SANDBOX
+
+# Forward only the supported authentication variables through --cleanenv.
+for token_name in COPILOT_GITHUB_TOKEN GH_TOKEN GITHUB_TOKEN; do
+    if [[ -n "${!token_name:-}" ]]; then
+        export "APPTAINERENV_${token_name}=${!token_name}"
+    fi
+done
+
+bash -lc '
+    if ! command -v apptainer >/dev/null 2>&1; then
+        module load apptainer || exit $?
+    fi
+    exec apptainer exec --containall --cleanenv \
+        --bind "$COPILOT_RUNTIME:/home/copilot/.copilot" \
+        --bind "$REPO_DIR:/workspace" \
+        --pwd /workspace \
+        "$COPILOT_SANDBOX" \
+        copilot \
+        --allow-all \
+        "$@"
+' -- "$@"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_SANDBOX="${CODEX_SANDBOX:-$HOME/.local/share/codex.sif}"
+CODEX_SANDBOX="${AGENT_SANDBOX:-${CODEX_SANDBOX:-$HOME/.local/share/codex.sif}}"
 
 if [[ $# -gt 0 && -d "$1" ]]; then
     REPO_DIR="$(cd "$1" && pwd -P)"
@@ -15,7 +15,7 @@ if [[ ! -f "$CODEX_SANDBOX" ]]; then
     exit 1
 fi
 
-mkdir -p "$HOME/.codex"
+mkdir -p "${CODEX_HOME:-$HOME/.codex}"
 
 CODEX_RUNTIME="$(mktemp -d "${TMPDIR:-/tmp}/codex-home.XXXXXX")"
 
@@ -28,7 +28,7 @@ trap cleanup EXIT
 tar \
     --exclude='*.sqlite*' \
     --exclude='./ipc' \
-    -C "$HOME/.codex" \
+    -C "${CODEX_HOME:-$HOME/.codex}" \
     -cf - . |
 tar -C "$CODEX_RUNTIME" -xf -
 
@@ -37,7 +37,9 @@ export REPO_DIR
 export CODEX_SANDBOX
 
 bash -lc '
-    module load apptainer
+    if ! command -v apptainer >/dev/null 2>&1; then
+        module load apptainer || exit $?
+    fi
     exec apptainer exec --containall --cleanenv \
         --bind "$CODEX_RUNTIME:/home/codex/.codex" \
         --bind "$REPO_DIR:/workspace" \

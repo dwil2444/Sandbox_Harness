@@ -5,9 +5,9 @@ From: node:22-bookworm-slim
     CODEX_VERSION=latest
 
 %files
-    entrypoint.sh /usr/local/bin/codex-container
-    codex-policy/workspace-write-guard.mjs /opt/codex-hooks/workspace-write-guard.mjs
-    codex-policy/requirements.toml /etc/codex/requirements.toml
+    agents/codex/entrypoint.sh /usr/local/bin/codex-container
+    agents/codex/policy/workspace-write-guard.mjs /opt/codex-hooks/workspace-write-guard.mjs
+    agents/codex/policy/requirements.toml /etc/codex/requirements.toml
 
 %post
     set -eu
